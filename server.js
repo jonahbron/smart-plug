@@ -1,14 +1,12 @@
 var b = require('bonescript');
 var net = require('net');
 
-var LEDS = [
-  'USR0',
-  'USR1',
-  'USR2',
-  'USR3'
-];
+// controlling different GPIO pin for relay
+var LEDS = ['P8_7'];
+
 var open_sockets = [];
 var state = b.HIGH;
+
 function setState(new_state) {
   if (new_state !== state) {
     state = new_state;
@@ -23,13 +21,17 @@ function setState(new_state) {
   }
 }
 setState(b.LOW);
+
 function writeState(socket) {
   socket.write(state + '\n');
 }
+
 function writeStateAllSockets() {
   open_sockets.forEach(writeState);
 }
+
 setInterval(writeStateAllSockets, 10000);
+
 var server = net.createServer(function (socket) {
   writeState(socket);
   open_sockets.push(socket);
@@ -58,6 +60,7 @@ var server = net.createServer(function (socket) {
     }
   });
 });
+
 server.listen(9999, function () {
   console.log('Ready for commands');
 });
