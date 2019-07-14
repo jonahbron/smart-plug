@@ -1,6 +1,9 @@
 .DEFAULT_GOAL := make
 
 make:
+	export RUST_TARGET_PATH="/home/jonah/Projects/smart-plug/"
+	export RUSTUP_TOOLCHAIN=avr-toolchain
+	export XARGO_RUST_SRC="/home/jonah/Projects/rust/src"
 	xargo build --target avr-atmega328p --release
 
 install: make
