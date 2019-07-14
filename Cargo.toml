@@ -1,0 +1,23 @@
+[package]
+name = "smart-plug"
+version = "0.1.0"
+authors = ["Jonah Dahlquist <jonah@jonah.name>"]
+edition = "2018"
+
+[dependencies]
+panic-halt = "0.2.0"
+
+[dependencies.arduino-uno]
+path = "../avr-hal/boards/arduino-uno"
+
+[profile.dev]
+panic = "abort"
+codegen-units = 1
+incremental = false
+lto = true
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+debug = false
+lto = true
