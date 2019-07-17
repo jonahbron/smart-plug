@@ -4,7 +4,9 @@ make:
 	export RUST_TARGET_PATH="/home/jonah/Projects/smart-plug/"
 	export RUSTUP_TOOLCHAIN=avr-toolchain
 	export XARGO_RUST_SRC="/home/jonah/Projects/rust/src"
-	xargo build --target avr-atmega328p --release
+	xargo rustc --target avr-atmega328p --release -- --emit=obj --verbose
+	#xargo rustc --emit=obj
+	#xargo build --target avr-atmega328p --release
 
 install: make
 	avr-objcopy -S -j .text -j .data -O ihex target/avr-atmega328p/release/smart-plug.elf target/avr-atmega328p/release/smart-plug.hex
