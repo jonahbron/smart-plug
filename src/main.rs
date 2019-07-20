@@ -36,6 +36,7 @@ pub extern fn main() -> () {
         },
     );
 
+    pins.d13.into_output(&mut pins.ddr);
     let mut cs_w5500 = pins.d10.into_output(&mut pins.ddr);
 
     // begin frame
