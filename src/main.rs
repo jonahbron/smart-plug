@@ -26,17 +26,17 @@ pub extern fn main() -> () {
 
     let mut spi = arduino_uno::spi::Spi::new(
         dp.SPI,
+        pins.d13.into_output(&mut pins.ddr),
         pins.d11.into_output(&mut pins.ddr),
         pins.d12.into_pull_up_input(&mut pins.ddr),
         Settings {
             data_order: DataOrder::MostSignificantFirst,
-            clock: SerialClockRate::OscfOver64,
+            clock: SerialClockRate::OscfOver4,
             clock_polarity: SerialClockPolarity::IdleLow,
             clock_phase: SerialClockPhase::SampleLeading,
         },
     );
 
-    pins.d13.into_output(&mut pins.ddr);
     let mut cs_w5500 = pins.d10.into_output(&mut pins.ddr);
 
     // begin frame
