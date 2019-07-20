@@ -38,10 +38,8 @@ pub extern fn main() -> () {
 
     let mut cs_w5500 = pins.d10.into_output(&mut pins.ddr);
 
-    // select w5500
+    // begin frame
     cs_w5500.set_low().unwrap_or_else(|_| panic!());
-
-    // 16-bit offset
 
     let version = spi
         // 16-bit offset
@@ -53,6 +51,8 @@ pub extern fn main() -> () {
         .and_then(|_| spi.send(0))
         .and_then(|_| spi.read())
         .unwrap_or_else(|_| panic!());
+
+    // end frame
     cs_w5500.set_high().unwrap_or_else(|_| panic!());
 
     ufmt::uwriteln!(&mut serial, "Version: {} (should be 4)\r", version).unwrap_or_else(|_| panic!());
