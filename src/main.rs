@@ -4,13 +4,14 @@
 
 extern crate panic_halt;
 
-use embedded_hal::spi::FullDuplex;
-use embedded_hal::digital::v2::OutputPin;
-use arduino_uno::spi::{Settings, DataOrder, SerialClockRate, SerialClockPolarity, SerialClockPhase};
+use embedded_hal::digital::v1_compat;
+use embedded_hal::blocking::delay::DelayMs;
+use w5500::{W5500, OnWakeOnLan, OnPingRequest, ConnectionType, ArpResponses, MacAddress, IpAddress, Socket, IntoUdpSocket, Udp, Register};
 
 #[no_mangle]
 pub extern fn main() -> () {
     let dp = arduino_uno::Peripherals::take().unwrap_or_else(|| panic!());
+    let mut delay = arduino_uno::Delay::new();
     let mut pins = arduino_uno::Pins::new(
         dp.PORTB,
         dp.PORTC,
@@ -24,56 +25,36 @@ pub extern fn main() -> () {
         57600,
     );
 
+    ufmt::uwriteln!(&mut serial, "Hello from Arduino!\r").unwrap();
+
+
     let mut spi = arduino_uno::spi::Spi::new(
         dp.SPI,
         pins.d13.into_output(&mut pins.ddr),
         pins.d11.into_output(&mut pins.ddr),
         pins.d12.into_pull_up_input(&mut pins.ddr),
-        Settings {
-            data_order: DataOrder::MostSignificantFirst,
-            clock: SerialClockRate::OscfOver4,
-            clock_polarity: SerialClockPolarity::IdleLow,
-            clock_phase: SerialClockPhase::SampleLeading,
-        },
+        arduino_uno::spi::Settings::default(),
     );
 
-    let mut cs_w5500 = pins.d10.into_output(&mut pins.ddr);
+    let mut cs_w5500 = v1_compat::OldOutputPin::new(pins.d10.into_output(&mut pins.ddr));
 
-    // WRITE TO MAC
-    cs_w5500.set_low().unwrap_or_else(|_| panic!());
-    spi
-        // 16-bit offset
-        .send(0)
-        .and_then(|_| spi.send(0x9))
-        // control byte: Common register, write mode, variable-length mode
-        .and_then(|_| spi.send(0b00000100))
-        // push read byte from chip
-        .and_then(|_| spi.send(10))
-        .and_then(|_| spi.send(15))
-        .and_then(|_| spi.send(20))
-        .and_then(|_| spi.send(25))
-        .and_then(|_| spi.send(30))
-        .and_then(|_| spi.send(35))
-        .unwrap_or_else(|_| panic!());
-    cs_w5500.set_high().unwrap_or_else(|_| panic!());
+    let mut w5500 = W5500::with_initialisation(
+        &mut cs_w5500,
+        &mut spi,
+        OnWakeOnLan::Ignore,
+        OnPingRequest::Respond,
+        ConnectionType::Ethernet,
+        ArpResponses::Cache
+    ).ok();
 
-    // TODO READ FROM MAC
-    cs_w5500.set_low().unwrap_or_else(|_| panic!());
-    spi
-        // 16-bit offset
-        .send(0)
-        .and_then(|_| spi.send(0x9))
-        // control byte: Common register, write mode, variable-length mode
-        .and_then(|_| spi.send(0b00000000))
-        .unwrap_or_else(|_| panic!());
-    let a = spi.send(0).and_then(|_| spi.read()).unwrap_or_else(|_| panic!());
-    let b = spi.send(0).and_then(|_| spi.read()).unwrap_or_else(|_| panic!());
-    let c = spi.send(0).and_then(|_| spi.read()).unwrap_or_else(|_| panic!());
-    let d = spi.send(0).and_then(|_| spi.read()).unwrap_or_else(|_| panic!());
-    let e = spi.send(0).and_then(|_| spi.read()).unwrap_or_else(|_| panic!());
-    let f = spi.send(0).and_then(|_| spi.read()).unwrap_or_else(|_| panic!());
-
-    cs_w5500.set_high().unwrap_or_else(|_| panic!());
-
-    ufmt::uwriteln!(&mut serial, "MAC: {}:{}:{}:{}:{}:{}\r", a, b, c, d, e, f).unwrap_or_else(|_| panic!());
+    if let Some(ref mut w5500) = w5500 {
+        ufmt::uwriteln!(&mut serial, "initialized\r").unwrap();
+        let mut w5500 = w5500.activate(&mut spi).unwrap_or_else(|_| panic!());
+        ufmt::uwriteln!(&mut serial, "activated\r").unwrap();
+        w5500.set_ip(IpAddress::new(192, 168, 86, 30)).unwrap_or_else(|_| panic!());
+        let IpAddress { address: ip } = w5500.read_ip(Register::CommonRegister(0x00_0F_u16)).unwrap_or_else(|_| panic!());
+        ufmt::uwriteln!(&mut serial, "IP: {}.{}.{}.{}\r", ip[0], ip[1], ip[2], ip[3]).unwrap();
+    } else {
+        ufmt::uwriteln!(&mut serial, "could not initialize\r").unwrap();
+    }
 }
