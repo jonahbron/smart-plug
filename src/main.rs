@@ -5,13 +5,12 @@
 extern crate panic_halt;
 
 use embedded_hal::digital::v1_compat;
-use embedded_hal::blocking::delay::DelayMs;
-use w5500::{W5500, OnWakeOnLan, OnPingRequest, ConnectionType, ArpResponses, MacAddress, IpAddress, Socket, IntoUdpSocket, Udp, Register};
+use w5500::{W5500, OnWakeOnLan, OnPingRequest, ConnectionType, ArpResponses, IpAddress, Register};
+use arduino_uno::spi::{Settings, DataOrder, SerialClockRate, SerialClockPolarity, SerialClockPhase};
 
 #[no_mangle]
 pub extern fn main() -> () {
     let dp = arduino_uno::Peripherals::take().unwrap_or_else(|| panic!());
-    let mut delay = arduino_uno::Delay::new();
     let mut pins = arduino_uno::Pins::new(
         dp.PORTB,
         dp.PORTC,
@@ -33,7 +32,12 @@ pub extern fn main() -> () {
         pins.d13.into_output(&mut pins.ddr),
         pins.d11.into_output(&mut pins.ddr),
         pins.d12.into_pull_up_input(&mut pins.ddr),
-        arduino_uno::spi::Settings::default(),
+        Settings {
+            data_order: DataOrder::MostSignificantFirst,
+            clock: SerialClockRate::OscfOver4,
+            clock_polarity: SerialClockPolarity::IdleLow,
+            clock_phase: SerialClockPhase::SampleLeading,
+        },
     );
 
     let mut cs_w5500 = v1_compat::OldOutputPin::new(pins.d10.into_output(&mut pins.ddr));
