@@ -5,12 +5,14 @@
 extern crate panic_halt;
 
 use embedded_hal::digital::v1_compat;
-use w5500::{W5500, OnWakeOnLan, OnPingRequest, ConnectionType, ArpResponses, IpAddress, Register};
+use embedded_hal::blocking::delay::DelayMs;
+use w5500::{W5500, OnWakeOnLan, OnPingRequest, ConnectionType, ArpResponses, MacAddress, IpAddress, Socket, IntoUdpSocket, Udp};
 use arduino_uno::spi::{Settings, DataOrder, SerialClockRate, SerialClockPolarity, SerialClockPhase};
 
 #[no_mangle]
 pub extern fn main() -> () {
     let dp = arduino_uno::Peripherals::take().unwrap_or_else(|| panic!());
+    let mut delay = arduino_uno::Delay::new();
     let mut pins = arduino_uno::Pins::new(
         dp.PORTB,
         dp.PORTC,
@@ -55,9 +57,35 @@ pub extern fn main() -> () {
         ufmt::uwriteln!(&mut serial, "initialized\r").unwrap();
         let mut w5500 = w5500.activate(&mut spi).unwrap_or_else(|_| panic!());
         ufmt::uwriteln!(&mut serial, "activated\r").unwrap();
+        w5500.set_mac(MacAddress::new(0x02, 0x01, 0x02, 0x03, 0x04, 0x05)).unwrap_or_else(|_| panic!());
         w5500.set_ip(IpAddress::new(192, 168, 86, 30)).unwrap_or_else(|_| panic!());
-        let IpAddress { address: ip } = w5500.read_ip(Register::CommonRegister(0x00_0F_u16)).unwrap_or_else(|_| panic!());
-        ufmt::uwriteln!(&mut serial, "IP: {}.{}.{}.{}\r", ip[0], ip[1], ip[2], ip[3]).unwrap();
+        w5500.set_subnet(IpAddress::new(255, 255, 255, 0)).unwrap_or_else(|_| panic!());
+        w5500.set_gateway(IpAddress::new(192, 168, 86, 1)).unwrap_or_else(|_| panic!());
+
+        let socket0 = w5500.take_socket(Socket::Socket0).unwrap_or_else(|| panic!());
+        let udp_server_socket = (&mut w5500, socket0).try_into_udp_server_socket(1234).ok();
+
+        let mut buffer = [0u8; 16];
+        ufmt::uwriteln!(&mut serial, "set up\r").unwrap();
+
+        if let Some(ref socket) = udp_server_socket {
+            ufmt::uwriteln!(&mut serial, "took socket\r").unwrap();
+            let mut udp = (&mut w5500, socket);
+
+            loop {
+                if let Ok(Some((ip, port, length))) = udp.receive(&mut buffer[..]) {
+                    ufmt::uwriteln!(&mut serial, "received: {} {} {} {} {} {}\r", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5]).unwrap();
+                    ufmt::uwriteln!(&mut serial, "port: {}\r", port).unwrap();
+                    ufmt::uwriteln!(&mut serial, "length: {}\r", length).unwrap();
+                    ufmt::uwriteln!(&mut serial, "ip: {}.{}.{}.{}\r", ip.address[0], ip.address[1], ip.address[2], ip.address[3]).unwrap();
+                } else {
+                    ufmt::uwriteln!(&mut serial, "could not receive\r").unwrap();
+                }
+                delay.delay_ms(1000);
+            }
+        } else {
+            ufmt::uwriteln!(&mut serial, "could not take socket\r").unwrap();
+        }
     } else {
         ufmt::uwriteln!(&mut serial, "could not initialize\r").unwrap();
     }
