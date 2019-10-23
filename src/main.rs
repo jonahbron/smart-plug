@@ -6,6 +6,7 @@ extern crate panic_halt;
 
 // use embedded_hal::blocking::delay::DelayMs;
 // use w5500::{W5500, OnWakeOnLan, OnPingRequest, ConnectionType, ArpResponses, MacAddress, IpAddress, Socket, IntoUdpSocket, Udp};
+use embedded_hal::spi::FullDuplex;
 use arduino_uno::spi::{Settings, DataOrder, SerialClockRate, SerialClockPolarity, SerialClockPhase};
 
 use w5500::uninitialized_w5500::{UninitializedW5500,InitializeError};
@@ -31,7 +32,7 @@ pub extern fn main() -> () {
         57600,
     );
 
-    let spi = arduino_uno::spi::Spi::new(
+    let mut spi = arduino_uno::spi::Spi::new(
         dp.SPI,
         pins.d13.into_output(&mut pins.ddr),
         pins.d11.into_output(&mut pins.ddr),
@@ -49,10 +50,16 @@ pub extern fn main() -> () {
 
     ufmt::uwriteln!(&mut serial, "set up\r").unwrap();
 
-    let uninitialized_w5500 = UninitializedW5500::new(FourWire::new(cs).activate(spi));
-    let w5500 = uninitialized_w5500.initialize_manual(MacAddress::new(0, 1, 2, 3, 4, 5), IpAddress::new(192, 168, 86, 30), Mode::default());// handle error
-    if let Ok((w5500, (socket, ..))) = w5500 {
-        ufmt::uwriteln!(&mut serial, "initialized\r").unwrap();
+    let send_byte = 0b10101010u8;
+    let receive_byte = spi.send(send_byte).and_then(|_| spi.read()).unwrap();
+
+    ufmt::uwriteln!(&mut serial, "send {}\r", send_byte).unwrap();
+    ufmt::uwriteln!(&mut serial, "receive {}\r", receive_byte).unwrap();
+
+    // let uninitialized_w5500 = UninitializedW5500::new(FourWire::new(cs).activate(spi));
+    // let w5500 = uninitialized_w5500.initialize_manual(MacAddress::new(0, 1, 2, 3, 4, 5), IpAddress::new(192, 168, 86, 30), Mode::default());// handle error
+    // if let Ok((w5500, (socket, ..))) = w5500 {
+    //     ufmt::uwriteln!(&mut serial, "initialized\r").unwrap();
     // //     let udp_socket = w5500.open_udp_socket(8000, socket);
     // //     if let Ok(udp_socket) = udp_socket {
     // //         let packet = udp_socket.send(IpAddress::new(192, 168, 86, 29), 4000);
@@ -62,11 +69,11 @@ pub extern fn main() -> () {
     // //             packet.send();
     // //         }
     // //     }
-    } else if let Err(InitializeError::ChipNotConnected) = w5500 {
-        ufmt::uwriteln!(&mut serial, "chip not connected\r").unwrap();
-    } else {
-        ufmt::uwriteln!(&mut serial, "not initialized\r").unwrap();
-    }
+    // } else if let Err(InitializeError::ChipNotConnected) = w5500 {
+    //     ufmt::uwriteln!(&mut serial, "chip not connected\r").unwrap();
+    // } else {
+    //     ufmt::uwriteln!(&mut serial, "not initialized\r").unwrap();
+    // }
 
 
     // let mut w5500 = W5500::with_initialisation(
