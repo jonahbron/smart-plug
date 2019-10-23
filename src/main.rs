@@ -51,10 +51,17 @@ pub extern fn main() -> () {
     ufmt::uwriteln!(&mut serial, "set up\r").unwrap();
 
     let send_byte = 0b10101010u8;
-    let receive_byte = spi.send(send_byte).and_then(|_| spi.read()).unwrap();
 
-    ufmt::uwriteln!(&mut serial, "send {}\r", send_byte).unwrap();
-    ufmt::uwriteln!(&mut serial, "receive {}\r", receive_byte).unwrap();
+    let version = spi
+        .send(0)// Address 1
+        .and_then(|_| spi.send(0x39))// address 2
+        .and_then(|_| spi.send(0b00000_0_00))
+        .and_then(|_| spi.send(0))// data
+        .and_then(|_| spi.read())// response
+        .unwrap();
+    // let receive_byte = spi.send(send_byte).and_then(|_| spi.read()).unwrap();
+
+    ufmt::uwriteln!(&mut serial, "receive {}\r", version).unwrap();
 
     // let uninitialized_w5500 = UninitializedW5500::new(FourWire::new(cs).activate(spi));
     // let w5500 = uninitialized_w5500.initialize_manual(MacAddress::new(0, 1, 2, 3, 4, 5), IpAddress::new(192, 168, 86, 30), Mode::default());// handle error
