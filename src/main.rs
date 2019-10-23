@@ -8,7 +8,7 @@ extern crate panic_halt;
 // use w5500::{W5500, OnWakeOnLan, OnPingRequest, ConnectionType, ArpResponses, MacAddress, IpAddress, Socket, IntoUdpSocket, Udp};
 use arduino_uno::spi::{Settings, DataOrder, SerialClockRate, SerialClockPolarity, SerialClockPhase};
 
-use w5500::uninitialized_w5500::UninitializedW5500;
+use w5500::uninitialized_w5500::{UninitializedW5500,InitializeError};
 use w5500::bus::FourWire;
 use w5500::MacAddress;
 use w5500::IpAddress;
@@ -46,18 +46,26 @@ pub extern fn main() -> () {
 
     let cs = pins.d10.into_output(&mut pins.ddr);
 
+
+    ufmt::uwriteln!(&mut serial, "set up\r").unwrap();
+
     let uninitialized_w5500 = UninitializedW5500::new(FourWire::new(cs).activate(spi));
     let w5500 = uninitialized_w5500.initialize_manual(MacAddress::new(0, 1, 2, 3, 4, 5), IpAddress::new(192, 168, 86, 30), Mode::default());// handle error
     if let Ok((w5500, (socket, ..))) = w5500 {
-        let udp_socket = w5500.open_udp_socket(8000, socket);
-        if let Ok(udp_socket) = udp_socket {
-            let packet = udp_socket.send(IpAddress::new(192, 168, 86, 35), 4000);
-            if let Ok(mut packet) = packet {
-                packet.write(&mut [104, 101, 108, 108, 111]);
-                // UNCOMMENTING THIS LINE BREAKS EVERYTHING
-                packet.send();
-            }
-        }
+        ufmt::uwriteln!(&mut serial, "initialized\r").unwrap();
+    // //     let udp_socket = w5500.open_udp_socket(8000, socket);
+    // //     if let Ok(udp_socket) = udp_socket {
+    // //         let packet = udp_socket.send(IpAddress::new(192, 168, 86, 29), 4000);
+    // //         if let Ok(mut packet) = packet {
+    // //             packet.write(&mut [104, 101, 108, 108, 111]);
+    // //             // UNCOMMENTING THIS LINE BREAKS EVERYTHING
+    // //             packet.send();
+    // //         }
+    // //     }
+    } else if let Err(InitializeError::ChipNotConnected) = w5500 {
+        ufmt::uwriteln!(&mut serial, "chip not connected\r").unwrap();
+    } else {
+        ufmt::uwriteln!(&mut serial, "not initialized\r").unwrap();
     }
 
 
